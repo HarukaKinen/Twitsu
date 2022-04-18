@@ -1,0 +1,7 @@
+VERSION = "1.0.1"
+
+TWITCH_APP_ID = ""
+TWITCH_APP_SECRET = ""
+
+BILI_JCT = ""
+BILI_SESSDATA = ""

@@ -1,0 +1,4 @@
+bilibili_api==9.1.0
+discord.py==1.7.3
+twitchAPI==2.5.3
+youtube_dl==2021.6.6
