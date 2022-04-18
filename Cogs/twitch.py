@@ -119,11 +119,13 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
+                description = f"{description}\n{match if match is not None else ''}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+
                 try:
                     meta = {
                         "copyright": 2,
                         "source": video_url,
-                        "desc": f"{title}",
+                        "desc": description,
                         "desc_format_id": 0,
                         "dynamic": "",
                         "interactive": 0,
@@ -140,7 +142,7 @@ class Twitch(commands.Cog):
                         "up_close_reply": False
                     }
 
-                    page = video_uploader.VideoUploaderPage(path=f"Videos/{_id}.mp4", title=title[0:80], description=f"{description}\n{match if match is not None else ''}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu")
+                    page = video_uploader.VideoUploaderPage(path=f"Videos/{_id}.mp4", title=title[0:80], description=description)
                     uploader = video_uploader.VideoUploader([page], meta, credential)
 
                     @uploader.on("__ALL__")
