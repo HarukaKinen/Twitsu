@@ -141,7 +141,7 @@ class Twitch(commands.Cog):
                             "lan": "",
                             "open": 0
                         },
-                        "tag": f"osu!, {match if match is not None else ''}",
+                        "tag": f"osu!, 比赛录像, {match if match is not None else ''}",
                         "tid": 136,
                         "title": f"[osu!] {match} {stage}: ({team1}) vs ({team2})" if match is not None else title,
                         "up_close_danmaku": False,
