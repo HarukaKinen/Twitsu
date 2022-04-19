@@ -119,7 +119,7 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
-                description = f"{description}\n{match if match is not None else ''}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+                description = f"{title}\n{description if match is not None else ''}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
 
                 try:
                     meta = {
