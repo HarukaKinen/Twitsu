@@ -66,11 +66,17 @@ class Twitch(commands.Cog):
     '''
 
     @commands.command()
-    async def t(self, ctx, msg=None, match=None, stage=None, team1=None, team2=None):
+    async def t(self, ctx, msg=None, match=None, stage=None, team1=None, team2=None, forum=None, mplink=None):
         if msg is not None:
             # get id in msg
             video_url = "https://www.twitch.tv/videos/" + \
                 re.findall('\d+', msg)[0]
+
+            forum = "https://osu.ppy.sh/community/forums/topics/" +\
+                re.findall('\d+', forum)[0] if forum is not None else ""
+
+            mplink = "https://osu.ppy.sh/community/matches/" +\
+                re.findall('\d+', mplink)[0] if mplink is not None else ""
 
             # get video info
             with YoutubeDL(options) as dl:
@@ -119,7 +125,7 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
-                description = f"{title}\n{description if match is not None else ''}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+                description = f"{title}\n{description if match is not None else ''}\n{forum}\n{mplink}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
 
                 try:
                     meta = {
