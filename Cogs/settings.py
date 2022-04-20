@@ -1,4 +1,5 @@
-VERSION = "1.0.1"
+# VERSION = {major}.{minor}.{datetime}
+VERSION = "1.2.420"
 
 TWITCH_APP_ID = ""
 TWITCH_APP_SECRET = ""
