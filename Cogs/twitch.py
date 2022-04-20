@@ -139,13 +139,13 @@ class Twitch(commands.Cog):
 
     @commands.command()
     async def t(self, ctx, *args):
-        info = await self.parseargs(args)
-        if info.video is not None:
+        video_info = await self.parseargs(args)
+        if video_info.video is not None:
             # get video info
             with YoutubeDL(options) as dl:
                 try:
                     info = dl.extract_info(
-                        info.video, download=False)
+                        video_info.video, download=False)
 
                     # get information from data
                     _id = info['id']
@@ -155,18 +155,18 @@ class Twitch(commands.Cog):
                     channel_url = "https://www.twitch.tv/" + \
                         info['uploader_id']
                     thumbnail_url = info['thumbnail']
-                    description = f"{info.match_name} {info.match_stage}: ({info.team1}) vs ({info.team2})" if info.match_name is not None else ""
+                    description = f"{video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else ""
 
                     # create embed
                     embed = discord.Embed(
                         description=description
                     )
 
-                    embed.set_author(name=f"{title}", url=info.video)
+                    embed.set_author(name=f"{title}", url=video_info.video)
                     embed.add_field(
                         name='VIDEO INFORMATION', value=f"**Chaneel**: [{channel}]({channel_url})\n**Published at**: <t:{timestamp}>", inline=False)
                     embed.add_field(
-                        name='TOURNAMENT INFORMATION', value=f"**Tournament**: [{info.match_name if info.match_name is not None else 'None'}]({info.forum})\n**MP Link**: {info.mplink if info.mplink is not None else 'None'}", inline=False)
+                        name='TOURNAMENT INFORMATION', value=f"**Tournament**: [{video_info.match_name if video_info.match_name is not None else 'None'}]({video_info.forum})\n**MP Link**: {video_info.mplink if video_info.mplink is not None else 'None'}", inline=False)
                     embed.set_image(url=thumbnail_url)
                     embed.set_footer(
                         text="Fetching video information Successfully")
@@ -182,8 +182,8 @@ class Twitch(commands.Cog):
                     embed.set_footer(text="Downloading video...")
                     await msg.edit(embed=embed)
                     loop = asyncio.get_event_loop()
-                    await loop.run_in_executor(None, dl.download, [info.video])
-                    info.path = f"Videos/{_id}.mp4"
+                    await loop.run_in_executor(None, dl.download, [video_info.video])
+                    video_info.path = f"Videos/{_id}.mp4"
                     embed.set_footer(text="Download video successfully")
                     await msg.edit(embed=embed)
                 except Exception as e:
@@ -191,28 +191,28 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
-                if info.sstime is not None:
+                if video_info.sstime is not None:
                     try:
                         embed.set_footer(text="Cutting video...")
                         embed.add_field(
-                            name='VIDEO CUTTING INFORMATION', value=f"**From**: {info.sstime}\n**To**: {info.totime}", inline=False)
+                            name='VIDEO CUTTING INFORMATION', value=f"**From**: {video_info.sstime}\n**To**: {video_info.totime}", inline=False)
                         await msg.edit(embed=embed)
                         output = f"Videos/{_id}-out.mp4"
                         p = subprocess.Popen(
-                            f"ffmpeg -i \"{info.path}\" -ss {info.sstime} -to {info.totime} -c:v copy -c:a copy \"{output}\"", shell=True)
+                            f"ffmpeg -i \"{video_info.path}\" -ss {video_info.sstime} -to {video_info.totime} -c:v copy -c:a copy \"{output}\"", shell=True)
                         p.communicate()
-                        info.path = output
+                        video_info.path = output
                     except Exception as e:
                         embed.set_footer(text=f"Cut video failed: {e}")
                         await msg.edit(embed=embed)
                         return
 
-                description = f"{title}\n{description if info.match_name is not None else ''}\n{info.forum}\n{info.mplink}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+                description = f"{title}\n{description if video_info.match_name is not None else ''}\n{video_info.forum}\n{video_info.mplink}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
 
                 try:
                     meta = {
                         "copyright": 2,
-                        "source": info.video,
+                        "source": video_info.video,
                         "desc": description,
                         "desc_format_id": 0,
                         "dynamic": "",
@@ -223,15 +223,15 @@ class Twitch(commands.Cog):
                             "lan": "",
                             "open": 0
                         },
-                        "tag": f"{game_mode[info.mode]}, 比赛录像, {info.match_name if info.match_name is not None else ''}",
+                        "tag": f"{game_mode[video_info.mode]}, 比赛录像, {video_info.match_name if video_info.match_name is not None else ''}",
                         "tid": 136,
-                        "title": f"[{game_mode[info.mode]}] {info.match_name} {info.match_stage}: ({info.team1}) vs ({info.team2})" if info.match_name is not None else title,
+                        "title": f"[{game_mode[video_info.mode]}] {video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else title,
                         "up_close_danmaku": False,
                         "up_close_reply": False
                     }
 
                     page = video_uploader.VideoUploaderPage(
-                        path=info.path, title=title[0:80], description=description)
+                        path=video_info.path, title=title[0:80], description=description)
                     uploader = video_uploader.VideoUploader(
                         [page], meta, credential)
 
