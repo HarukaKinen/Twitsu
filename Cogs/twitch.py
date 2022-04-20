@@ -1,7 +1,9 @@
+import subprocess
 import discord
+import asyncio
 import re
 import os
-import asyncio
+
 from yt_dlp import YoutubeDL
 
 from discord.ext import commands
@@ -10,7 +12,8 @@ from bilibili_api import sync, video_uploader, Credential
 
 from twitchAPI import Twitch
 
-from Cogs.settings import (VERSION, TWITCH_APP_ID, TWITCH_APP_SECRET, BILI_JCT, BILI_SESSDATA)
+from Cogs.settings import (VERSION, TWITCH_APP_ID,
+                           TWITCH_APP_SECRET, BILI_JCT, BILI_SESSDATA)
 
 twitch = Twitch(TWITCH_APP_ID, TWITCH_APP_SECRET)
 
@@ -36,10 +39,28 @@ options = {
     'outtmpl': u'Videos/%(id)s.%(ext)s',
 }
 
+game_mode = {
+    0: "osu!",
+    1: "osu!taiko",
+    2: "osu!catch",
+    3: "osu!mania",
+}
+
 
 class Twitch(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.mode = 0
+        self.video = None
+        self.match_name = None
+        self.match_stage = None
+        self.team1 = None
+        self.team2 = None
+        self.forum = None
+        self.mplink = None
+        self.sstime = None
+        self.totime = None
+        self.path = None
 
     '''
     {
@@ -65,24 +86,60 @@ class Twitch(commands.Cog):
     }
     '''
 
+    async def parseargs(self, msg):
+        i = 0
+        for arg in msg:
+            # 第一个参数是视频链接，不需要解析
+            if i == 0:
+                self.video = "https://www.twitch.tv/videos/" + \
+                    re.findall('\d+', arg)[0]
+            elif arg.startswith("-"):
+                if arg == "-m":
+                    self.match_name = msg[i + 1]
+                elif arg == "-s":
+                    self.match_stage = msg[i + 1]
+                elif arg == "-t1":
+                    self.team1 = msg[i + 1]
+                elif arg == "-t2":
+                    self.team2 = msg[i + 1]
+                elif arg == "-f":
+                    self.forum = "https://osu.ppy.sh/community/forums/topics/" +\
+                        re.findall('\d+', msg[i+1])[0]
+                elif arg == "-mp":
+                    self.mplink = "https://osu.ppy.sh/community/matches/" +\
+                        re.findall('\d+', msg[i+1])[0]
+                elif arg == "-ss":
+                    self.sstime = msg[i + 1].replace(".", ":")
+                elif arg == "-to":
+                    self.totime = msg[i + 1].replace(".", ":")
+                elif arg == "-mode":
+                    self.mode = int(msg[i + 1])
+                else:
+                    pass
+            else:
+                pass
+            i += 1
+        print(
+            self.video,
+            self.match_name,
+            self.match_stage,
+            self.team1,
+            self.team2,
+            self.forum,
+            self.mplink,
+            self.sstime,
+            self.totime,)
+
     @commands.command()
-    async def t(self, ctx, msg=None, match=None, stage=None, team1=None, team2=None, forum=None, mplink=None):
-        if msg is not None:
-            # get id in msg
-            video_url = "https://www.twitch.tv/videos/" + \
-                re.findall('\d+', msg)[0]
-
-            forum = "https://osu.ppy.sh/community/forums/topics/" +\
-                re.findall('\d+', forum)[0] if forum is not None else ""
-
-            mplink = "https://osu.ppy.sh/community/matches/" +\
-                re.findall('\d+', mplink)[0] if mplink is not None else ""
+    async def t(self, ctx, *args):
+        await self.parseargs(args)
+        if self.video is not None:
 
             # get video info
             with YoutubeDL(options) as dl:
                 try:
                     info = dl.extract_info(
-                        video_url, download=False)
+                        self.video, download=False)
 
                     # get information from data
                     _id = info['id']
@@ -92,16 +149,18 @@ class Twitch(commands.Cog):
                     channel_url = "https://www.twitch.tv/" + \
                         info['uploader_id']
                     thumbnail_url = info['thumbnail']
-                    description = f"{match} {stage}: ({team1}) vs ({team2})" if match is not None else ""
+                    description = f"{self.match_name} {self.match_stage}: ({self.team1}) vs ({self.team2})" if self.match_name is not None else ""
 
                     # create embed
                     embed = discord.Embed(
                         description=description
                     )
 
-                    embed.set_author(name=f"{title}", url=video_url)
+                    embed.set_author(name=f"{title}", url=self.video)
                     embed.add_field(
                         name='VIDEO INFORMATION', value=f"**Chaneel**: [{channel}]({channel_url})\n**Published at**: <t:{timestamp}>", inline=False)
+                    embed.add_field(
+                        name='TOURNAMENT INFORMATION', value=f"**Tournament**: [{self.match_name if self.match_name is not None else 'None'}]({self.forum})\n**MP Link**: {self.mplink if self.mplink is not None else 'None'}", inline=False)
                     embed.set_image(url=thumbnail_url)
                     embed.set_footer(
                         text="Fetching video information Successfully")
@@ -117,7 +176,8 @@ class Twitch(commands.Cog):
                     embed.set_footer(text="Downloading video...")
                     await msg.edit(embed=embed)
                     loop = asyncio.get_event_loop()
-                    await loop.run_in_executor(None, dl.download, [video_url])
+                    await loop.run_in_executor(None, dl.download, [self.video])
+                    self.path = f"Videos/{_id}.mp4"
                     embed.set_footer(text="Download video successfully")
                     await msg.edit(embed=embed)
                 except Exception as e:
@@ -125,12 +185,28 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
-                description = f"{title}\n{description if match is not None else ''}\n{forum}\n{mplink}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+                if self.sstime is not None:
+                    try:
+                        embed.set_footer(text="Cutting video...")
+                        embed.add_field(
+                            name='VIDEO CUTTING INFORMATION', value=f"**From**: {self.sstime}\n**To**: {self.totime}", inline=False)
+                        await msg.edit(embed=embed)
+                        output = f"Videos/{_id}-out.mp4"
+                        p = subprocess.Popen(
+                            f"ffmpeg -i \"{self.path}\" -ss {self.sstime} -to {self.totime} -c:v copy -c:a copy \"{output}\"", shell=True)
+                        p.communicate()
+                        self.path = output
+                    except Exception as e:
+                        embed.set_footer(text=f"Cut video failed: {e}")
+                        await msg.edit(embed=embed)
+                        return
+
+                description = f"{title}\n{description if self.match_name is not None else ''}\n{self.forum}\n{self.mplink}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
 
                 try:
                     meta = {
                         "copyright": 2,
-                        "source": video_url,
+                        "source": self.video,
                         "desc": description,
                         "desc_format_id": 0,
                         "dynamic": "",
@@ -141,15 +217,17 @@ class Twitch(commands.Cog):
                             "lan": "",
                             "open": 0
                         },
-                        "tag": f"osu!, 比赛录像, {match if match is not None else ''}",
+                        "tag": f"{game_mode[self.mode]}, 比赛录像, {self.match_name if self.match_name is not None else ''}",
                         "tid": 136,
-                        "title": f"[osu!] {match} {stage}: ({team1}) vs ({team2})" if match is not None else title,
+                        "title": f"[{game_mode[self.mode]}] {self.match_name} {self.match_stage}: ({self.team1}) vs ({self.team2})" if self.match_name is not None else title,
                         "up_close_danmaku": False,
                         "up_close_reply": False
                     }
 
-                    page = video_uploader.VideoUploaderPage(path=f"Videos/{_id}.mp4", title=title[0:80], description=description)
-                    uploader = video_uploader.VideoUploader([page], meta, credential)
+                    page = video_uploader.VideoUploaderPage(
+                        path=self.path, title=title[0:80], description=description)
+                    uploader = video_uploader.VideoUploader(
+                        [page], meta, credential)
 
                     @uploader.on("__ALL__")
                     async def event(data):
@@ -163,15 +241,30 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                 except Exception as e:
                     error_msg = e.__str__()
-                    embed.set_footer(text=f"Upload video failed: {error_msg}")
+                    if error_msg.find("21070") != -1:
+                        try:
+                            asyncio.sleep(30)
+                            await uploader.start()
+                        except Exception as e:
+                            embed.set_footer(
+                                text=f"2nd attempt upload video failed: {error_msg}")
+                    else:
+                        embed.set_footer(
+                            text=f"Upload video failed: {error_msg}")
                     await msg.edit(embed=embed)
                     return
 
                 remove_stuff(_id)
+        else:
+            await ctx.channel.send("Video link is required")
 
-def remove_stuff(id):
-    if os.path.exists(f"Videos/{id}.mp4"):
-        os.remove(f"Videos/{id}.mp4")
+
+def remove_stuff(_id):
+    if os.path.exists(f"Videos/{_id}.mp4"):
+        os.remove(f"Videos/{_id}.mp4")
+    if os.path.exists(f"Videos/{_id}-out.mp4"):
+        os.remove(f"Videos/{_id}-out.mp4")
+
 
 def setup(bot):
     bot.add_cog(Twitch(bot))
