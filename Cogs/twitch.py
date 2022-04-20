@@ -48,18 +48,18 @@ game_mode = {
 
 
 class VideoInfo:
-    def __init__(self, mode, video, match_name, match_stage, team1, team2, forum, mplink, sstime, totime, path) -> None:
-        self.mode = mode
-        self.video = video
-        self.match_name = match_name
-        self.match_stage = match_stage
-        self.team1 = team1
-        self.team2 = team2
-        self.forum = forum
-        self.mplink = mplink
-        self.sstime = sstime
-        self.totime = totime
-        self.path = path
+    def __init__(self):
+        self.mode = None
+        self.video = None
+        self.match_name = None
+        self.match_stage = None
+        self.team1 = None
+        self.team2 = None
+        self.forum = None
+        self.mplink = None
+        self.sstime = None
+        self.totime = None
+        self.path = None
 
 
 class Twitch(commands.Cog):
