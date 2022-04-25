@@ -1,3 +1,4 @@
+from datetime import datetime
 import subprocess
 import discord
 import asyncio
@@ -124,16 +125,6 @@ class Twitch(commands.Cog):
             else:
                 pass
             i += 1
-        print(
-            info.video,
-            info.match_name,
-            info.match_stage,
-            info.team1,
-            info.team2,
-            info.forum,
-            info.mplink,
-            info.sstime,
-            info.totime,)
 
         return info
 
@@ -207,7 +198,7 @@ class Twitch(commands.Cog):
                         await msg.edit(embed=embed)
                         return
 
-                description = f"{title}\n{description if video_info.match_name is not None else ''}\n{video_info.forum}\n{video_info.mplink}\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+                description = f"{title}\n{description if video_info.match_name is not None else ''}\n{'这是一个B站特供剪辑版，该视频已自动过滤敏感内容。' if video_info.sstime is not None else ''}\n\n比赛详情：{video_info.forum if video_info.forum is not None else '暂无'}\nMP Link：{video_info.mplink if video_info.mplink is not None else '暂无'}\n比赛时间：{datetime.fromtimestamp(timestamp)} (UTC)\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
 
                 try:
                     meta = {
