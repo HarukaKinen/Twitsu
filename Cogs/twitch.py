@@ -145,7 +145,7 @@ class Twitch(commands.Cog):
                     channel = info['uploader']
                     channel_url = "https://www.twitch.tv/" + \
                         info['uploader_id']
-                    thumbnail_url = info['thumbnail']
+                    thumbnail_url = info['thumbnail'] if info['thumbnail'] is not None else ""
                     description = f"{video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else ""
 
                     # create embed
