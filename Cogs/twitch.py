@@ -1,3 +1,6 @@
+import nest_asyncio
+nest_asyncio.apply()
+
 from datetime import datetime
 import subprocess
 import discord
@@ -9,17 +12,15 @@ from yt_dlp import YoutubeDL
 
 from discord.ext import commands
 
-from bilibili_api import sync, video_uploader, Credential
+from biliup.plugins.bili_webup import BiliBili, Data
+
 
 from twitchAPI import Twitch
 
 from Cogs.settings import (VERSION, TWITCH_APP_ID,
-                           TWITCH_APP_SECRET, BILI_JCT, BILI_SESSDATA)
+                           TWITCH_APP_SECRET, BILI_JCT, BILI_SESSDATA, BILI_ACCESS_TOKEN, BILI_DEDEUSERID, BILI_DEDEUSERID_CKMD5)
 
 twitch = Twitch(TWITCH_APP_ID, TWITCH_APP_SECRET)
-
-credential = Credential(sessdata=BILI_SESSDATA, bili_jct=BILI_JCT)
-
 
 class dl_logger(object):
     def debug(self, msg):
@@ -198,56 +199,46 @@ class Twitch(commands.Cog):
                         await msg.edit(embed=embed)
                         return
 
-                description = f"{title}\n{description if video_info.match_name is not None else ''}\n{'这是一个B站特供剪辑版，该视频已自动过滤敏感内容。' if video_info.sstime is not None else ''}\n\n比赛详情：{video_info.forum if video_info.forum is not None else '暂无'}\nMP Link：{video_info.mplink if video_info.mplink is not None else '暂无'}\n比赛时间：{datetime.fromtimestamp(timestamp)} (UTC)\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
-
                 try:
-                    meta = {
-                        "copyright": 2,
-                        "source": video_info.video,
-                        "desc": description,
-                        "desc_format_id": 0,
-                        "dynamic": "",
-                        "interactive": 0,
-                        "open_elec": 1,
-                        "no_reprint": 1,
-                        "subtitles": {
-                            "lan": "",
-                            "open": 0
-                        },
-                        "tag": f"{game_mode[video_info.mode]}, 比赛录像, {video_info.match_name if video_info.match_name is not None else ''}",
-                        "tid": 136,
-                        "title": f"[{game_mode[video_info.mode]}] {video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else title,
-                        "up_close_danmaku": False,
-                        "up_close_reply": False
-                    }
-
-                    page = video_uploader.VideoUploaderPage(
-                        path=video_info.path, title=title[0:80], description=description)
-                    uploader = video_uploader.VideoUploader(
-                        [page], meta, credential)
-
-                    @uploader.on("__ALL__")
-                    async def event(data):
-                        print(data)
-
                     embed.set_footer(text="Uploading video...")
-                    await msg.edit(embed=embed)
-                    await uploader.start()
+
+                    video = Data()
+
+                    video.title = f"[{game_mode[video_info.mode]}] {video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else title
+
+                    video.desc = f"{description if video_info.match_name is not None else ''}\n原标题：{title}\n{'这是一个B站特供剪辑版，该视频已自动过滤敏感内容。' if video_info.sstime is not None else ''}\n\n比赛详情：{video_info.forum if video_info.forum is not None else '暂无'}\nMP Link：{video_info.mplink if video_info.mplink is not None else '暂无'}\n比赛时间：{datetime.fromtimestamp(timestamp)} (UTC)\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+
+                    tagList = []
+                    tagList.append("比赛录像")
+                    tagList.append(game_mode[video_info.mode])
+                    if video_info.match_name is not None:
+                        tagList.append(video_info.match_name)
+                    video.set_tag(tagList)
+
+                    video.source = video_info.video
+                    video.tid = 136
+
+                    with BiliBili(video) as bili:
+                        bili.login("bili.cookie", {
+                            'cookies': {
+                                'SESSDATA': BILI_SESSDATA,
+                                'bili_jct': BILI_JCT,
+                                'DedeUserID__ckMd5': BILI_DEDEUSERID_CKMD5,
+                                'DedeUserID': BILI_DEDEUSERID
+                            }, 'access_token': BILI_ACCESS_TOKEN})
+                        
+                        video_part = bili.upload_file(
+                            video_info.path, lines='AUTO', tasks=3)  # 上传视频，默认线路AUTO自动选择，线程数量3。
+                        video.append(video_part)
+                        ret = bili.submit()
+                        print(ret)
 
                     embed.set_footer(text="Upload video successfully")
                     await msg.edit(embed=embed)
                 except Exception as e:
                     error_msg = e.__str__()
-                    if error_msg.find("21070") != -1:
-                        try:
-                            asyncio.sleep(30)
-                            await uploader.start()
-                        except Exception as e:
-                            embed.set_footer(
-                                text=f"2nd attempt upload video failed: {error_msg}")
-                    else:
-                        embed.set_footer(
-                            text=f"Upload video failed: {error_msg}")
+                    embed.set_footer(
+                        text=f"Upload video failed: {error_msg}")
                     await msg.edit(embed=embed)
                     return
 
