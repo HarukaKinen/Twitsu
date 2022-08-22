@@ -39,6 +39,7 @@ options = {
     'forcetitle': False,
     'forcedescription': False,
     'outtmpl': u'Videos/%(id)s.%(ext)s',
+    'external_downloader' : 'aria2c',
 }
 
 game_mode = {
@@ -206,13 +207,15 @@ class Twitch(commands.Cog):
 
                     video.title = f"[{game_mode[video_info.mode]}] {video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else title
 
-                    video.desc = f"{description if video_info.match_name is not None else ''}\n原标题：{title}\n{'这是一个B站特供剪辑版，该视频已自动过滤敏感内容。' if video_info.sstime is not None else ''}\n\n比赛详情：{video_info.forum if video_info.forum is not None else '暂无'}\nMP Link：{video_info.mplink if video_info.mplink is not None else '暂无'}\n比赛时间：{datetime.fromtimestamp(timestamp)} (UTC)\n\nAuto upload by Twitsu v{VERSION}\ngithub.com/HarukaKinen/Twitsu"
+                    video.desc = f"{description if video_info.match_name is not None else ''}\n原标题：{title}\n{'该版本是一个B站特供剪辑版，该稿件已尝试自动过滤了部分敏感内容。' if video_info.sstime is not None else ''}\n\n比赛详情：{video_info.forum if video_info.forum is not None else '暂无'}\nMP Link：{video_info.mplink if video_info.mplink is not None else '暂无'}\n比赛时间：{datetime.fromtimestamp(timestamp)} (UTC)\n\nAuto upload by Twitsu v{VERSION}\nhttps://github.com/HarukaKinen/Twitsu"
 
                     tagList = []
                     tagList.append("比赛录像")
                     tagList.append(game_mode[video_info.mode])
                     if video_info.match_name is not None:
                         tagList.append(video_info.match_name)
+                    if "中国" in video.title:
+                        tagList.append("中国队")
                     video.set_tag(tagList)
 
                     video.source = video_info.video
@@ -226,7 +229,7 @@ class Twitch(commands.Cog):
                                 'DedeUserID__ckMd5': BILI_DEDEUSERID_CKMD5,
                                 'DedeUserID': BILI_DEDEUSERID
                             }, 'access_token': BILI_ACCESS_TOKEN})
-                        
+
                         video_part = bili.upload_file(
                             video_info.path, lines='AUTO', tasks=3)  # 上传视频，默认线路AUTO自动选择，线程数量3。
                         video.append(video_part)
