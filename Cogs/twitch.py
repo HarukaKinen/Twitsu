@@ -157,7 +157,7 @@ class Twitch(commands.Cog):
 
                     embed.set_author(name=f"{title}", url=video_info.video)
                     embed.add_field(
-                        name='VIDEO INFORMATION', value=f"**Chaneel**: [{channel}]({channel_url})\n**Published at**: <t:{timestamp}>", inline=False)
+                        name='VIDEO INFORMATION', value=f"**Channel**: [{channel}]({channel_url})\n**Published at**: <t:{timestamp}>", inline=False)
                     embed.add_field(
                         name='TOURNAMENT INFORMATION', value=f"**Tournament**: [{video_info.match_name if video_info.match_name is not None else 'None'}]({video_info.forum})\n**MP Link**: {video_info.mplink if video_info.mplink is not None else 'None'}", inline=False)
                     embed.set_image(url=thumbnail_url)
