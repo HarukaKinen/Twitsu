@@ -1,2 +1,3 @@
 # Twitsu
-一个半自动搬运 Twitch 录播到 Bilibili 的 Discord Bot - A discord bot for Twitch to Bilibili
+
+[CNOSU比赛搬运姬](https://space.bilibili.com/1933579212)的完整后端自动化开放源码
