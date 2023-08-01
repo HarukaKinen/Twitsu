@@ -1,5 +1,8 @@
 from datetime import datetime
+from io import BytesIO
+from PIL import Image
 import subprocess
+import requests
 import discord
 import asyncio
 import re
@@ -50,19 +53,10 @@ game_mode = {
 class VideoInfo:
     def __init__(self):
         self.mode = None
-        self.video = None
-        self.match_name = None
-        self.match_stage = None
-        self.team1 = None
-        self.team2 = None
-        self.forum = None
-        self.mplink = None
-        self.sstime = None
-        self.totime = None
-        self.path = None
+        self.title = None
 
 
-class Twitch(commands.Cog):
+class Youtube(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -96,29 +90,12 @@ class Twitch(commands.Cog):
         for arg in msg:
             # 第一个参数是视频链接，不需要解析
             if i == 0:
-                info.video = "https://www.twitch.tv/videos/" + \
-                    re.findall('\d+', arg)[0]
+                info.video = arg
             elif arg.startswith("-"):
-                if arg == "-m":
-                    info.match_name = msg[i + 1]
-                elif arg == "-s":
-                    info.match_stage = msg[i + 1]
-                elif arg == "-t1":
-                    info.team1 = msg[i + 1]
-                elif arg == "-t2":
-                    info.team2 = msg[i + 1]
-                elif arg == "-f":
-                    info.forum = "https://osu.ppy.sh/community/forums/topics/" +\
-                        re.findall('\d+', msg[i+1])[0]
-                elif arg == "-mp":
-                    info.mplink = "https://osu.ppy.sh/community/matches/" +\
-                        re.findall('\d+', msg[i+1])[0]
-                elif arg == "-ss":
-                    info.sstime = msg[i + 1].replace(".", ":")
-                elif arg == "-to":
-                    info.totime = msg[i + 1].replace(".", ":")
-                elif arg == "-mode":
+                if arg == "-mode":
                     info.mode = int(msg[i + 1])
+                elif arg == "-t":
+                    info.title = msg[i + 1]
                 else:
                     pass
             else:
@@ -128,7 +105,7 @@ class Twitch(commands.Cog):
         return info
 
     @commands.command()
-    async def t(self, ctx, *args):
+    async def yt(self, ctx, *args):
         video_info = await self.parseargs(args)
         if video_info.video is not None:
             # get video info
@@ -137,15 +114,32 @@ class Twitch(commands.Cog):
                     info = dl.extract_info(
                         video_info.video, download=False)
 
+                    # write video info to format.json
+                    with open("format.json", "w") as f:
+                        f.write(str(info))
+
                     # get information from data
                     _id = info['id']
                     title = info['title']
-                    timestamp = info['timestamp']
                     channel = info['uploader']
-                    channel_url = "https://www.twitch.tv/" + \
-                        info['uploader_id']
-                    thumbnail_url = info['thumbnail'] if info['thumbnail'] is not None else ""
-                    description = f"{video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else ""
+                    channel_url = info['channel_url']
+
+                    thumbnail_url = ""
+                    if info['thumbnail'] is not None:
+                        thumbnail_url = info['thumbnail']
+                        thumbnail_path = f"Videos/{_id}.png"
+                        response = requests.get(thumbnail_url)
+                        response.raise_for_status()
+                        image = Image.open(BytesIO(response.content))
+                        image.save(thumbnail_path, format="PNG")
+                        print(f"Thumbnail saved to {thumbnail_path}")
+
+                    description = f"[{game_mode[video_info.mode]}] {video_info.title}"
+
+                    # if description > 80 characters, drop error
+                    if len(description) > 80:
+                        await ctx.channel.send(f"Title is too long ({len(description)} current, 80 max)")
+                        return
 
                     # create embed
                     embed = discord.Embed(
@@ -154,9 +148,7 @@ class Twitch(commands.Cog):
 
                     embed.set_author(name=f"{title}", url=video_info.video)
                     embed.add_field(
-                        name='VIDEO INFORMATION', value=f"**Channel**: [{channel}]({channel_url})\n**Published at**: <t:{timestamp}>", inline=False)
-                    embed.add_field(
-                        name='TOURNAMENT INFORMATION', value=f"**Tournament**: [{video_info.match_name if video_info.match_name is not None else 'None'}]({video_info.forum})\n**MP Link**: {video_info.mplink if video_info.mplink is not None else 'None'}", inline=False)
+                        name='VIDEO INFORMATION', value=f"**Channel**: [{channel}]({channel_url})", inline=False)
                     embed.set_image(url=thumbnail_url)
                     embed.set_footer(
                         text="Fetching video information Successfully")
@@ -173,7 +165,8 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     loop = asyncio.get_event_loop()
                     await loop.run_in_executor(None, dl.download, [video_info.video])
-                    video_info.path = f"Videos/{_id}.mp4"
+                    file_name = dl.prepare_filename(info)
+                    video_info.path = file_name
                     embed.set_footer(text="Download video successfully")
                     await msg.edit(embed=embed)
                 except Exception as e:
@@ -181,38 +174,18 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
-                if video_info.sstime is not None:
-                    try:
-                        embed.set_footer(text="Cutting video...")
-                        embed.add_field(
-                            name='VIDEO CUTTING INFORMATION', value=f"**From**: {video_info.sstime}\n**To**: {video_info.totime}", inline=False)
-                        await msg.edit(embed=embed)
-                        output = f"Videos/{_id}-out.mp4"
-                        p = subprocess.Popen(
-                            f"ffmpeg -i \"{video_info.path}\" -ss {video_info.sstime} -to {video_info.totime} -c:v copy -c:a copy \"{output}\"", shell=True)
-                        p.communicate()
-                        video_info.path = output
-                    except Exception as e:
-                        embed.set_footer(text=f"Cut video failed: {e}")
-                        await msg.edit(embed=embed)
-                        return
-
                 try:
                     embed.set_footer(text="Uploading video...")
 
                     video = Data()
 
-                    video.title = f"[{game_mode[video_info.mode]}] {video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else title
+                    video.title = description
 
-                    video.desc = f"{description if video_info.match_name is not None else ''}\n原标题：{title}\n{'该版本是一个B站特供剪辑版，因各种不可抗力原因而没有按照原样分发 | This video archive was not distributed as originally intended due to various uncontrollable reasons' if video_info.sstime is not None else ''}\n\n比赛详情：{video_info.forum if video_info.forum is not None else '暂无'}\nMP Link：{video_info.mplink if video_info.mplink is not None else '暂无'}\n比赛时间：{datetime.fromtimestamp(timestamp)} (UTC)\n\nAuto upload by Twitsu v{VERSION}\nhttps://github.com/HarukaKinen/Twitsu"
+                    video.desc = info['description'] if info['description'] is not None else ""
 
                     tagList = []
-                    tagList.append("比赛录像")
                     tagList.append(game_mode[video_info.mode])
-                    if video_info.match_name is not None:
-                        tagList.append(video_info.match_name)
-                    if "中国" in video.title:
-                        tagList.append("中国队")
+
                     video.set_tag(tagList)
 
                     video.source = video_info.video
@@ -230,6 +203,8 @@ class Twitch(commands.Cog):
                         video_part = bili.upload_file(
                             video_info.path, lines='AUTO', tasks=3)  # 上传视频，默认线路AUTO自动选择，线程数量3。
                         video.append(video_part)
+                        if os.path.exists(thumbnail_path):
+                            video.cover = bili.cover_up(f"{thumbnail_path}").replace('http:', '')
                         ret = bili.submit()
                         print(ret)
 
@@ -242,17 +217,16 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
-                remove_stuff(_id)
+                remove_stuff(file_name)
+                remove_stuff(thumbnail_path)
         else:
             await ctx.channel.send("Video link is required")
 
 
-def remove_stuff(_id):
-    if os.path.exists(f"Videos/{_id}.mp4"):
-        os.remove(f"Videos/{_id}.mp4")
-    if os.path.exists(f"Videos/{_id}-out.mp4"):
-        os.remove(f"Videos/{_id}-out.mp4")
+def remove_stuff(file_name):
+    if os.path.exists(file_name):
+        os.remove(file_name)
 
 
 def setup(bot):
-    bot.add_cog(Twitch(bot))
+    bot.add_cog(Youtube(bot))
