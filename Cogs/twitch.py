@@ -1,5 +1,8 @@
 from datetime import datetime
+from io import BytesIO
+from PIL import Image
 import subprocess
+import requests
 import discord
 import asyncio
 import re
@@ -144,7 +147,17 @@ class Twitch(commands.Cog):
                     channel = info['uploader']
                     channel_url = "https://www.twitch.tv/" + \
                         info['uploader_id']
-                    thumbnail_url = info['thumbnail'] if info['thumbnail'] is not None else ""
+
+                    thumbnail_url = ""
+                    if info['thumbnail'] is not None:
+                        thumbnail_url = info['thumbnail']
+                        thumbnail_path = f"Videos/{_id}.png"
+                        response = requests.get(thumbnail_url)
+                        response.raise_for_status()
+                        image = Image.open(BytesIO(response.content))
+                        image.save(thumbnail_path, format="PNG")
+                        print(f"Thumbnail saved to {thumbnail_path}")
+
                     description = f"{video_info.match_name} {video_info.match_stage}: ({video_info.team1}) vs ({video_info.team2})" if video_info.match_name is not None else ""
 
                     # create embed
@@ -213,6 +226,8 @@ class Twitch(commands.Cog):
                         tagList.append(video_info.match_name)
                     if "中国" in video.title:
                         tagList.append("中国队")
+                    if "香港" in video.title or "台湾" in video.title or "台北" in video.title or "澳门" in video.title:
+                        tagList.append("亚运会")
                     video.set_tag(tagList)
 
                     video.source = video_info.video
@@ -230,6 +245,8 @@ class Twitch(commands.Cog):
                         video_part = bili.upload_file(
                             video_info.path, lines='AUTO', tasks=3)  # 上传视频，默认线路AUTO自动选择，线程数量3。
                         video.append(video_part)
+                        if os.path.exists(thumbnail_path):
+                            video.cover = bili.cover_up(f"{thumbnail_path}").replace('http:', '')
                         ret = bili.submit()
                         print(ret)
 
@@ -242,16 +259,16 @@ class Twitch(commands.Cog):
                     await msg.edit(embed=embed)
                     return
 
-                remove_stuff(_id)
+                remove_stuff(f"Videos/{_id}.mp4")
+                remove_stuff(f"Videos/{_id}-out.mp4")
+                remove_stuff(thumbnail_path)
         else:
             await ctx.channel.send("Video link is required")
 
 
-def remove_stuff(_id):
-    if os.path.exists(f"Videos/{_id}.mp4"):
-        os.remove(f"Videos/{_id}.mp4")
-    if os.path.exists(f"Videos/{_id}-out.mp4"):
-        os.remove(f"Videos/{_id}-out.mp4")
+def remove_stuff(file_name):
+    if os.path.exists(file_name):
+        os.remove(file_name)
 
 
 def setup(bot):
