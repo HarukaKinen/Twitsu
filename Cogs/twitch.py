@@ -1,3 +1,6 @@
+import nest_asyncio
+nest_asyncio.apply()
+
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
