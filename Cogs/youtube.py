@@ -204,7 +204,7 @@ class Youtube(commands.Cog):
                             }, 'access_token': BILI_ACCESS_TOKEN})
 
                         video_part = bili.upload_file(
-                            video_info.path, lines='AUTO', tasks=3)  # 上传视频，默认线路AUTO自动选择，线程数量3。
+                            video_info.path, lines='ws', tasks=3)  # 上传视频，默认线路AUTO自动选择，线程数量3。
                         video.append(video_part)
                         if os.path.exists(thumbnail_path):
                             video.cover = bili.cover_up(f"{thumbnail_path}").replace('http:', '')

@@ -4,3 +4,4 @@ discord.py==1.7.3
 twitchAPI==2.5.3
 yt_dlp
 requests
+pillow
